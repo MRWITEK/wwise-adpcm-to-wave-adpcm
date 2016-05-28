@@ -1,0 +1,17 @@
+These programs were written because music from DOOM 2016 by Mick Gordon is great.
+
+[GUIDE] Unpacking and converting audio files from DOOM
+https://www.reddit.com/r/Doom/comments/4d13s5/guide_unpacking_and_converting_audio_files_from/
+Reddit guide by user /u/offizierkoma provided pointers towards starting points in extraction and decoding of sounds.
+
+PAYDAY 2 Modding Information
+https://bitbucket.org/zabb65/payday-2-modding-information
+This project has Wwise IMA ADPCM encoding/decoding utility that helped understand that at least one Wwise IMA ADPCM flavor is normal IMA ADPCM with different headers.
+
+Mediaextract
+http://panzi.github.io/mediaextract/
+This utility provided simple media extraction but it can't be used together with wrong file lengths.
+
+SoX - Sound eXchange
+http://sox.sourceforge.net/Main/HomePage
+This utility can play/decode IMA ADPCM wave files that have more than 2 channels.
