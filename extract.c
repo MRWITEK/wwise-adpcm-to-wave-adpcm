@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 {
     if(argc < 2)
     {
-	printf("Usage: %s FileName1 [FileName2...]\n"
+	fprintf(stderr, "Usage: %s FileName1 [FileName2...]\n"
 		"Extracts anything resembling wave (RIFF) files and all data stored after that from provided resource files,\n"
 		"places extracted files in the same directory where input files are stored.\n"
 		/* "ignores stored length of data.\n" */
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	 * 2) C runtime library might do something weird. See note in reformat.c*/
 	if(setvbuf(file, NULL, _IONBF, 0))
 	{
-	    printf("%s: Error using file?!\n", argv[i]);
+	    fprintf(stderr, "%s: Error using file?!\n", argv[i]);
 	    fclose(file);
 	    continue;
 	}
