@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     uint32_t riffMark = *(uint32_t *)"RIFF";
     for(size_t i = 1; i < argc; ++i)
     {
-	FILE *file = fopen(argv[i], "r");
+	FILE *file = fopen(argv[i], "rb");
 	if(file == NULL)
 	{
 	    fprintf(stderr, "%s: Error opening file.\n", argv[i]);
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 			snprintf(outName, outNameLength,
 				"%s_%08lx.wav", argv[i], offset);
 			writeFile = inspectPointer,
-				  fileWriter = fopen(outName, "w");
+				  fileWriter = fopen(outName, "wb");
 			inspectPointer += 3;
 		    }
 		}
