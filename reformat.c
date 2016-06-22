@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 		"Assumes provided files are Wwise IMA ADPCM wave files,\n"
 		"changes CONTENTS of the provided files in a way\n"
 		"that lets them be read by normal IMA ADPCM decoders (for example, SoX).\n"
-		"Version r2\n"
+		"Version r3\n"
 		, argv[0]);
 	return 1;
     }
@@ -136,6 +136,8 @@ int main(int argc, char **argv)
 	    printf("%s: File doesn't seem to be (Wwise) IMA ADPCM wave."
 		    " It has format ID 0x%02x and bit depth %u.\n",
 		    argv[i], formatID, sampleBits);
+	    fclose(file);
+	    continue;
 	}
 
 	/* NOTE: not all Wwise WAVE files are right,

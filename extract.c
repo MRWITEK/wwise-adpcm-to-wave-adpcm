@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 		"Extracts anything resembling wave (RIFF) files and all data stored after that from provided resource files,\n"
 		"places extracted files in the same directory where input files are stored.\n"
 		/* "ignores stored length of data.\n" */
-		"Version r2\n"
+		"Version r3\n"
 		, argv[0]);
 	return 1;
     }
