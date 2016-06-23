@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 		"Extracts anything resembling wave (RIFF) files and all data stored after that from provided resource files,\n"
 		"places extracted files in the same directory where input files are stored.\n"
 		/* "ignores stored length of data.\n" */
-		"Version r3\n"
+		"Version r4\n"
 		, argv[0]);
 	return 1;
     }
@@ -71,7 +71,17 @@ int main(int argc, char **argv)
 	    {
 		if(reading == 0)
 		{
-		    break; /* file has ended or something */
+		    /* file has ended or something */
+		    if(fileWriter)
+		    {
+			/* output the last 3 bytes of the input file */
+			ioStatus = fwrite(readFile, 3, 1, fileWriter);
+			if(ioStatus == 0)
+			{
+			    fprintf(stderr, "%s: Error writing a file.\n", outName);
+			}
+		    }
+		    break;
 		}
 
 		/* includes rollback check */
