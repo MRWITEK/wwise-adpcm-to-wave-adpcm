@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 	printf("Usage: %s FileName1 [FileName2...]\n"
 		"Assumes provided files are Wwise IMA ADPCM wave files,\n"
 		"changes CONTENTS of the provided files in a way\n"
-		"that lets them be read by normal IMA ADPCM decoders (for example, SoX).\n"
+		"that lets them be read by complete IMA ADPCM decoders (for example, SoX).\n"
 		"Version r4\n"
 		, argv[0]);
 	return 1;
