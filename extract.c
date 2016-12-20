@@ -33,44 +33,44 @@ int main(int argc, char **argv)
 {
     if(argc < 2)
     {
-	fprintf(stderr, "Usage: %s FileName1 [FileName2...]\n"
-		"Extracts anything resembling wave (RIFF) files and all data stored after that from provided resource files,\n"
-		"places extracted files in the same directory where input files are stored.\n"
-		/* "ignores stored length of data.\n" */
-		"Version r4\n"
-		, argv[0]);
-	return 1;
+        fprintf(stderr, "Usage: %s FileName1 [FileName2...]\n"
+                "Extracts anything resembling wave (RIFF) files and all data stored after that from provided resource files,\n"
+                "places extracted files in the same directory where input files are stored.\n"
+                /* "ignores stored length of data.\n" */
+                "Version r4\n"
+                , argv[0]);
+        return 1;
     }
     uint32_t riffMark = *(uint32_t *)"RIFF";
     for(size_t i = 1; i < argc; ++i)
     {
-	FILE *file = fopen(argv[i], "rb");
-	if(file == NULL)
-	{
-	    fprintf(stderr, "%s: Error opening file.\n", argv[i]);
-	    continue;
-	}
-	/* NOTE: turn buffered i/o off because
-	 * 1) program is already going to do that;
-	 * 2) C runtime library might do something weird. See note in reformat.c*/
-	if(setvbuf(file, NULL, _IONBF, 0))
-	{
-	    fprintf(stderr, "%s: Error using file?!\n", argv[i]);
-	    fclose(file);
-	    continue;
-	}
-	size_t ioStatus = 1;
-	static uint8_t readFile[BUFFER_SIZE + 3];
-	*(uint32_t *)readFile = ~riffMark; /* definitely not a "RIFF" */
+        FILE *file = fopen(argv[i], "rb");
+        if(file == NULL)
+        {
+            fprintf(stderr, "%s: Error opening file.\n", argv[i]);
+            continue;
+        }
+        /* NOTE: turn buffered i/o off because
+         * 1) program is already going to do that;
+         * 2) C runtime library might do something weird. See note in reformat.c*/
+        if(setvbuf(file, NULL, _IONBF, 0))
+        {
+            fprintf(stderr, "%s: Error using file?!\n", argv[i]);
+            fclose(file);
+            continue;
+        }
+        size_t ioStatus = 1;
+        static uint8_t readFile[BUFFER_SIZE + 3];
+        *(uint32_t *)readFile = ~riffMark; /* definitely not a "RIFF" */
 
-	/* name_%08x.wav */
-	size_t outNameLength = strlen(argv[i]) + 5 + 16 + 1;
-	char *outName = malloc(outNameLength);
-	size_t offset = -3; /* starts at 3 bytes rollback */
-	FILE *fileWriter = NULL;
+        /* name_%08x.wav */
+        size_t outNameLength = strlen(argv[i]) + 5 + 16 + 1;
+        char *outName = malloc(outNameLength);
+        size_t offset = -3; /* starts at 3 bytes rollback */
+        FILE *fileWriter = NULL;
 
-	/* read file, split it by RIFF marks */
-	while(1)
+        /* read file, split it by RIFF marks */
+        while(1)
         {
             ioStatus = fread(readFile+3, 1, BUFFER_SIZE, file);
             uint8_t *writeFile = readFile,
@@ -146,8 +146,8 @@ int main(int argc, char **argv)
         fprintf(stdout, "%s\n", outName);
 
         /* TODO: check for errors */
-	free(outName);
-	fclose(file);
+        free(outName);
+        fclose(file);
     }
     return 0;
 }
