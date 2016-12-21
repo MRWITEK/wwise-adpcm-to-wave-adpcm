@@ -93,7 +93,8 @@ int main(int argc, char **argv)
             }
 
             /* includes rollback check */
-            /* TODO: stop writing at other RIFF file _or_ at recorded RIFF length */
+            /* TODO: stop writing at other RIFF file _or_
+               at recorded RIFF length */
             for(; inspectPointer < inspectEnd;
                     ++inspectPointer)
             {
@@ -106,10 +107,13 @@ int main(int argc, char **argv)
                         ioStatus = fwrite(writeFile,
                                 inspectPointer - writeFile, 1, fileWriter);
                         /* try to close the file in any case */
-                        if((ioStatus == 0) | (fclose(fileWriter) != 0))
+                        if(ioStatus == 0)
                         {
-                            fprintf(stderr, "%s: Error writing to a file.\n",
+                            fprintf(stderr,
+                                    "%s: Error writing to a file.\nAborting.\n",
                                     outName);
+                            fclose(fileWriter);
+                            goto abort;
                         }
                         fprintf(stdout, "%s\n", outName);
                     }
@@ -117,8 +121,13 @@ int main(int argc, char **argv)
                     snprintf(outName, outNameLength,
                             "%s_%08lx.wav", argv[i], offset);
                     writeFile = inspectPointer;
-                    /* TODO: check fileWriter file handle for errors */
                     fileWriter = fopen(outName, "wb");
+                    if(fileWriter == NULL)
+                    {
+                        fprintf(stderr, "%s: Error creating file.\nAborting.\n",
+                                outName);
+                        goto abort;
+                    }
                     inspectPointer += 3;
                     /* TODO: read RIFF chunk lenght? */
                 }
@@ -130,6 +139,7 @@ int main(int argc, char **argv)
                 if(ioStatus == 0)
                 {
                     /* there is an error, it should have set ferror() */
+                    /* there is check for errors just outside the loop */
                     break;
                 }
             }
@@ -141,13 +151,20 @@ int main(int argc, char **argv)
         /* check for errors and try to close the file */
         if(fileWriter && (ferror(fileWriter) | fclose(fileWriter)))
         {
-            fprintf(stderr, "%s: Error writing to a file.\n", outName);
+            fprintf(stderr, "%s: Error writing to a file.\nAborting.\n",
+                    outName);
+            goto abort;
         }
         fprintf(stdout, "%s\n", outName);
 
-        /* TODO: check for errors */
         free(outName);
         fclose(file);
+        continue;
+
+abort:
+        free(outName);
+        fclose(file);
+        return 1;
     }
     return 0;
 }
