@@ -42,7 +42,7 @@ int main(int argc, char **argv)
         return 1;
     }
     uint32_t riffMark = *(uint32_t *)"RIFF";
-    for(size_t i = 1; i < argc; ++i)
+    for(size_t i = 1; i < (size_t)argc; ++i)
     {
         FILE *file = fopen(argv[i], "rb");
         if(file == NULL)
@@ -59,20 +59,21 @@ int main(int argc, char **argv)
             fclose(file);
             continue;
         }
-        size_t ioStatus = 1;
+        uint8_t aborting = 0;
         static uint8_t readFile[BUFFER_SIZE + 3];
         *(uint32_t *)readFile = ~riffMark; /* definitely not a "RIFF" */
 
         /* name_%08x.wav */
         size_t outNameLength = strlen(argv[i]) + 5 + 16 + 1;
         char *outName = malloc(outNameLength);
-        size_t offset = -3; /* starts at 3 bytes rollback */
+        size_t offset = -3; /* starts at 3 bytes rollback,
+                               size_t is unsigned, overflow is defined */
         FILE *fileWriter = NULL;
 
         /* read file, split it by RIFF marks */
         while(1)
         {
-            ioStatus = fread(readFile+3, 1, BUFFER_SIZE, file);
+            size_t ioStatus = fread(readFile+3, 1, BUFFER_SIZE, file);
             uint8_t *writeFile = readFile,
                     *inspectPointer = readFile,
                     *inspectEnd = readFile + ioStatus;
@@ -80,7 +81,7 @@ int main(int argc, char **argv)
             {
                 if(fileWriter) /* output the last 3 bytes of the input file */
                 {
-                    ioStatus = fwrite(readFile, 3, 1, fileWriter);
+                    fwrite(readFile, 3, 1, fileWriter);
                     /* there is check for errors just outside the loop */
                 }
 
@@ -92,9 +93,13 @@ int main(int argc, char **argv)
                 break;
             }
 
-            /* includes rollback check */
+            /* NOTE: the program searches for RIFF files and assumes that
+               RIFF chunk length can be shorter then recorded,
+               so when there is another "RIFF" sequence
+               it just starts writing another file */
             /* TODO: stop writing at other RIFF file _or_
                at recorded RIFF length */
+            /* includes rollback check */
             for(; inspectPointer < inspectEnd;
                     ++inspectPointer)
             {
@@ -113,7 +118,8 @@ int main(int argc, char **argv)
                                     "%s: Error writing to a file.\nAborting.\n",
                                     outName);
                             fclose(fileWriter);
-                            goto abort;
+                            aborting = 1;
+                            goto nextFile;
                         }
                         fprintf(stdout, "%s\n", outName);
                     }
@@ -126,7 +132,8 @@ int main(int argc, char **argv)
                     {
                         fprintf(stderr, "%s: Error creating file.\nAborting.\n",
                                 outName);
-                        goto abort;
+                        aborting = 1;
+                        goto nextFile;
                     }
                     inspectPointer += 3;
                     /* TODO: read RIFF chunk lenght? */
@@ -153,18 +160,15 @@ int main(int argc, char **argv)
         {
             fprintf(stderr, "%s: Error writing to a file.\nAborting.\n",
                     outName);
-            goto abort;
+            aborting = 1;
+            goto nextFile;
         }
         fprintf(stdout, "%s\n", outName);
 
+nextFile:
         free(outName);
         fclose(file);
-        continue;
-
-abort:
-        free(outName);
-        fclose(file);
-        return 1;
+        if(aborting) return 1;
     }
     return 0;
 }

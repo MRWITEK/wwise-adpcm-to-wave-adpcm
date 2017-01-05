@@ -13,7 +13,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <stdio.h>
 
 /* size of input and output buffers used by the program */
+#ifdef BUFSIZ
 #define BUFFER_SIZE BUFSIZ
+#else
+#define BUFFER_SIZE 4096
+#endif /* BUFSIZ */
 
 /* TODO: if input is directory, process all the files inside */
 /* TODO: if stored length is less then current file length, make file smaller*/
