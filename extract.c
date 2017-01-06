@@ -35,21 +35,22 @@ has to be executed at run time.
 This is just overkill for 4 bytes:
     #includes <strings.h>
     memcpy(&riffMark, "RIFF", 4);
-char *string */
+*/
+/* char,char,char,char */
 /* little endian */
-#define string4ToInt32LE(string)       \
-    (((string)[0] &0xff) << 0*8) |     \
-    (((string)[1] &0xff) << 1*8) |     \
-    (((string)[2] &0xff) << 2*8) |     \
-    (((string)[3] &0xff) << 3*8)
+#define string4ToInt32LE(a,b,c,d)  \
+    (((a) &0xff) << 0*8) |         \
+    (((b) &0xff) << 1*8) |         \
+    (((c) &0xff) << 2*8) |         \
+    (((d) &0xff) << 3*8)
 /* big endian */
-#define string4ToInt32BE(string)       \
-    (((string)[3] &0xff) << 0*8) |     \
-    (((string)[2] &0xff) << 1*8) |     \
-    (((string)[1] &0xff) << 2*8) |     \
-    (((string)[0] &0xff) << 3*8)
+#define string4ToInt32BE(a,b,c,d)  \
+    (((d) &0xff) << 0*8) |         \
+    (((c) &0xff) << 1*8) |         \
+    (((b) &0xff) << 2*8) |         \
+    (((a) &0xff) << 3*8)
 #undef string4ToInt32BE
-#define string4ToInt32(string) string4ToInt32LE(string)
+#define string4ToInt32(a,b,c,d) string4ToInt32LE(a,b,c,d)
 
 /* NOTE: relies on that pointers when cast from (uint8_t *) to (uint32_t *)
 work as usual when dereferenced, which, as far as I can tell,
@@ -71,7 +72,7 @@ int main(int argc, char **argv)
                 , argv[0]);
         return 1;
     }
-    static uint32_t riffMark = string4ToInt32("RIFF");
+    static uint32_t riffMark = string4ToInt32('R','I','F','F');
 
     for(size_t i = 1; i < (size_t)argc; ++i)
     {
