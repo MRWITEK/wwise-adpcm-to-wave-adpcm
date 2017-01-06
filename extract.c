@@ -8,10 +8,11 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdint.h> /* uint32_t,size_t,uint8_t */
+#include <stdlib.h> /* malloc,free */
+#include <stdio.h> /* fprintf,printf,fopen,setvbuf,fclose,fread,fwrite,ferror,
+                      [feof],snprintf */
+#include <string.h> /* strlen */
 
 /* size of input/output buffer used by the program */
 /* NOTE: the minimal size of the resulting buffer is 4+3
@@ -27,6 +28,35 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #define BUFFER_SIZE 4096
 #endif /* BUFSIZ */
 
+/* These macros let you assign 4 byte string to 4 byte integer and
+initialize static variable because the following line has undefined behavior and
+has to be executed at run time.
+    uint32_t riffMark = *(uint32_t *)"RIFF";
+This is just overkill for 4 bytes:
+    #includes <strings.h>
+    memcpy(&riffMark, "RIFF", 4);
+char *string */
+/* little endian */
+#define string4ToInt32LE(string)       \
+    (((string)[0] &0xff) << 0*8) |     \
+    (((string)[1] &0xff) << 1*8) |     \
+    (((string)[2] &0xff) << 2*8) |     \
+    (((string)[3] &0xff) << 3*8)
+/* big endian */
+#define string4ToInt32BE(string)       \
+    (((string)[3] &0xff) << 0*8) |     \
+    (((string)[2] &0xff) << 1*8) |     \
+    (((string)[1] &0xff) << 2*8) |     \
+    (((string)[0] &0xff) << 3*8)
+#undef string4ToInt32BE
+#define string4ToInt32(string) string4ToInt32LE(string)
+
+/* NOTE: relies on that pointers when cast from (uint8_t *) to (uint32_t *)
+work as usual when dereferenced, which, as far as I can tell,
+is Undefined Behavior, and can be compiled in unexpected ways
+so, you should probably compile with -fno-strict-aliasing */
+/* NOTE: in this program integers are only unsigned. Neat! */
+
 /* TODO: if input is directory, process all the files inside */
 /* TODO: let the program take input from stdin */
 int main(int argc, char **argv)
@@ -41,7 +71,8 @@ int main(int argc, char **argv)
                 , argv[0]);
         return 1;
     }
-    uint32_t riffMark = *(uint32_t *)"RIFF";
+    static uint32_t riffMark = string4ToInt32("RIFF");
+
     for(size_t i = 1; i < (size_t)argc; ++i)
     {
         FILE *file = fopen(argv[i], "rb");
