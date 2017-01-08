@@ -98,6 +98,13 @@ int main(int argc, char **argv)
         /* name_%08x.wav */
         size_t outNameLength = strlen(argv[i]) + 5 + 16 + 1;
         char *outName = malloc(outNameLength);
+        if(outName == NULL)
+        {
+            fprintf(stderr, "Error allocating memory?!\nAborting.\n");
+            aborting = 1;
+            /* free(NULL) should work */
+            goto nextFile;
+        }
         size_t offset = -3; /* starts at 3 bytes rollback,
                                size_t is unsigned, overflow is defined */
         FILE *fileWriter = NULL;
