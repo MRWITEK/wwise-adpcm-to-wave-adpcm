@@ -175,7 +175,7 @@ int main(int argc, char **argv)
                         goto nextFile;
                     }
                     inspectPointer += 3;
-                    /* TODO: read RIFF chunk lenght? */
+                    /* TODO: read RIFF chunk length? */
                 }
             }
             if(fileWriter)
