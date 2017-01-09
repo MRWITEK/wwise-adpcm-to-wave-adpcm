@@ -151,12 +151,11 @@ int main(int argc, char **argv)
                         ioStatus = fwrite(writeFile,
                                 inspectPointer - writeFile, 1, fileWriter);
                         /* try to close the file in any case */
-                        if(ioStatus == 0)
+                        if((ioStatus == 0) | (fclose(fileWriter) != 0))
                         {
                             fprintf(stderr,
                                     "%s: Error writing to a file.\nAborting.\n",
                                     outName);
-                            fclose(fileWriter);
                             aborting = 1;
                             goto nextFile;
                         }
