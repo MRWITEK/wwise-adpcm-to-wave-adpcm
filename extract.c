@@ -70,7 +70,7 @@ int main(int argc, char **argv)
                 /* "ignores stored length of data.\n" */
                 "Version r4\n"
                 , argv[0]);
-        return 1;
+        return -1;
     }
     static uint32_t riffMark = string4ToInt32('R','I','F','F');
 

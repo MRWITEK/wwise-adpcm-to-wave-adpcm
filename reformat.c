@@ -19,10 +19,44 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #define BUFFER_SIZE 4096
 #endif /* BUFSIZ */
 
+/* These macros let you assign 4 byte string to 4 byte integer and
+initialize static variable because the following line has undefined behavior and
+has to be executed at run time.
+    uint32_t riffMark = *(uint32_t *)"RIFF";
+This is just overkill for 4 bytes:
+    #includes <strings.h>
+    memcpy(&riffMark, "RIFF", 4);
+*/
+/* char,char,char,char */
+/* little endian */
+#define string4ToInt32LE(a,b,c,d)  \
+    (((a) &0xff) << 0*8) |         \
+    (((b) &0xff) << 1*8) |         \
+    (((c) &0xff) << 2*8) |         \
+    (((d) &0xff) << 3*8)
+/* big endian */
+#define string4ToInt32BE(a,b,c,d)  \
+    (((d) &0xff) << 0*8) |         \
+    (((c) &0xff) << 1*8) |         \
+    (((b) &0xff) << 2*8) |         \
+    (((a) &0xff) << 3*8)
+#undef string4ToInt32BE
+#define string4ToInt32(a,b,c,d) string4ToInt32LE(a,b,c,d)
+
+/* NOTE: relies on that pointers when cast from (uint8_t *) to (uint32_t *)
+work as usual when dereferenced, which, as far as I can tell,
+is Undefined Behavior, and can be compiled in unexpected ways
+so, you should probably compile with -fno-strict-aliasing */
+
 /* TODO: if input is directory, process all the files inside */
-/* TODO: if stored length is less then current file length, make file smaller*/
+/* TODO: if stored length is less then current file length, make file smaller */
+/* TODO: account stored length of the file */
 int main(int argc, char **argv)
 {
+    static uint32_t riffMark = string4ToInt32('R','I','F','F');
+    static uint32_t waveMark = string4ToInt32('W','A','V','E');
+    static uint32_t  fmtMark = string4ToInt32('f','m','t',' ');
+    static uint32_t dataMark = string4ToInt32('d','a','t','a');
     if(argc < 2)
     {
         printf("Usage: %s FileName1 [FileName2...]\n"
@@ -31,10 +65,10 @@ int main(int argc, char **argv)
                 "that lets them be read by complete IMA ADPCM decoders (for example, SoX).\n"
                 "Version r4\n"
                 , argv[0]);
-        return 1;
+        return -1;
     }
     static uint16_t waveId = 0x11;
-    for(size_t i = 1; i < argc; ++i)
+    for(size_t i = 1; i < (size_t)argc; ++i)
     {
         FILE *file = fopen(argv[i], "r+b");
         if(file == NULL)
@@ -48,47 +82,55 @@ int main(int argc, char **argv)
         if(setvbuf(file, NULL, _IONBF, 0))
         {
             printf("%s: Error using file?!\n", argv[i]);
-            fclose(file);
-            continue;
+            fclose(file); continue;
         }
         size_t ioStatus = 1;
+
+        uint32_t riffLenght = 0;
         {
             uint32_t magick[3] = {0,0,0};
-            ioStatus = fread(magick, 4, 3, file);
+            ioStatus = fread(magick, 1, 4*3, file);
             if(ioStatus == 0)
             {
-                printf("%s: Can't read enough of file.\n", argv[i]);
-                fclose(file);
-                continue;
+                printf("%s: Can't read file.\n", argv[i]);
+                fclose(file); continue;
+            }
+            if(ioStatus < 4*3)
+            {
+                printf("%s: File is too small.\n", argv[i]);
+                fclose(file); continue;
+            }
+            if(magick[0] != riffMark)
+            {
+                printf("%s: Wrong format. Expected \"RIFF\", got \"%.4s\"\n",
+                        argv[i], (char *)magick);
+                fclose(file); continue;
             }
 
-            if(magick[0] != *(uint32_t *)"RIFF")
+            riffLenght = magick[1];
+
+            if(magick[2] != waveMark)
             {
-                printf("%s: Wrong format.\n",
-                        argv[i]);
-                fclose(file);
-                continue;
-            }
-            if(magick[2] != *(uint32_t *)"WAVE")
-            {
-                printf("%s: Can't recognize format. Maybe concatenate with previous file?\n",
-                        argv[i]);
-                fclose(file);
-                continue;
+                printf("%s: Can't recognize format. Got \"RIFF\", "
+                        "but no \"WAVE\". Got \"%.4s\" instead\n",
+                        argv[i], (char *)(magick+2));
+                fclose(file); continue;
             }
         }
+
         size_t fmtLength = 0;
         /* find "fmt " chunk */
         while(ioStatus > 0)
         {
             uint32_t chunkHead[2];
-            ioStatus = fread(chunkHead, 4, 2, file);
-            if(ioStatus == 0)
+            ioStatus = fread(chunkHead, 1, 4*2, file);
+            if(ioStatus < 4*2)
             {
-                printf("%s: Can't read enough of file.\n", argv[i]);
+                printf("%s: Can't find fmt chunk.\n", argv[i]);
                 break;
             }
-            if(chunkHead[0] == *(uint32_t *)"fmt ")
+
+            if(chunkHead[0] == fmtMark)
             {
                 fmtLength = chunkHead[1];
                 break;
@@ -111,18 +153,39 @@ int main(int argc, char **argv)
             continue;
         }
         size_t fmtOffset = ftell(file);
-        /* IMA ADPCM fmt chunk as described in specification
-           uint16_t wFormatTag;       w 0
-           uint16_t nChannels;        r 2
-           uint32_t nSamplesPerSec;     4
-           uint32_t nAvgBytesPerSec;    8
-           uint16_t nBlockAlign;      r 12
-           uint16_t wBitsPerSample;   r 14
-           uint16_t cbSize;             16
-           uint16_t wSamplesPerBlock; w 18
-           (nBlockAlign-4*nChannels)*8/(wBitsPerSample*nChannels)+1
-           */
 
+        /* IMA ADPCM fmt chunk as described in specification
+           fmtLength = 20;
+           0  w uint16_t wFormatTag = 0x0011;
+           2  r uint16_t nChannels;
+           4    uint32_t nSamplesPerSec;
+           8    uint32_t nAvgBytesPerSec = (rounded up)
+                                  = nBlockAlign*nSamplesPerSec/wSamplesPerBlock;
+                  nBlockAlign -- bytes per block
+           12 r uint16_t nBlockAlign [usually] = (N+1)*4*nChannels, N=0,1,2...;
+           14 r uint16_t wBitsPerSample [usually] = 4;
+           16   uint16_t cbSize = 2;
+           18 w uint16_t wSamplesPerBlock =
+           = (nBlockAlign-4*nChannels)*8/(wBitsPerSample*nChannels)+1 =
+           = [usually] N*8+1 */
+        /* if(wBitsPerSample==3) nBlockAlign = ((N*3)+1)*4*nChannels;
+           uint16_t wSamplesPerBlock = N*4*8+1 = N*32+1 */
+
+        /* Wwise IMA ADPCM fmt chunk as it appears in the wild
+           fmtLength = 0x18 = 24;
+           0  uint16_t wFormatTag = 0x0002;
+           2  uint16_t nChannels;
+           4  uint32_t nSamplesPerSec;
+           8  uint32_t nAvgBytesPerSec;
+           12 uint16_t nBlockAlign = (0x0024 = 36)*nChannels =
+                                   = (N+1)*4*nChannels, N = 8;
+           14 uint16_t wBitsPerSample = 4;
+           16 uint16_t cbSize = 6;
+           18 uint16_t unknown;
+           20 uint32_t dwChannelMask */
+
+        /* IMA ADPCM fmt chunk adapted to multichannel wave specification
+           TODO: add short description */
         uint8_t fmtDescription[18];
         ioStatus = fread(fmtDescription, 18, 1, file);
         if(ioStatus == 0)
