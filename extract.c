@@ -103,7 +103,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "Error allocating memory?!\nAborting.\n");
             aborting = 1;
             /* free(NULL) should work */
-            goto nextFile;
+            goto cleanup;
         }
         size_t offset = -3; /* starts at 3 bytes rollback,
                                size_t is unsigned, overflow is defined */
@@ -157,7 +157,7 @@ int main(int argc, char **argv)
                                     "%s: Error writing to a file.\nAborting.\n",
                                     outName);
                             aborting = 1;
-                            goto nextFile;
+                            goto cleanup;
                         }
                         fprintf(stdout, "%s\n", outName);
                     }
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
                         fprintf(stderr, "%s: Error creating file.\nAborting.\n",
                                 outName);
                         aborting = 1;
-                        goto nextFile;
+                        goto cleanup;
                     }
                     inspectPointer += 3;
                     /* TODO: read RIFF chunk length? */
@@ -199,11 +199,11 @@ int main(int argc, char **argv)
             fprintf(stderr, "%s: Error writing to a file.\nAborting.\n",
                     outName);
             aborting = 1;
-            goto nextFile;
+            goto cleanup;
         }
         fprintf(stdout, "%s\n", outName);
 
-nextFile:
+cleanup:
         free(outName);
         fclose(file);
         if(aborting) return 1;
