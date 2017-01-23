@@ -160,37 +160,37 @@ int main(int argc, char **argv)
         }
 
         /* IMA ADPCM fmt chunk as described in specification
-           fmtLength = 20;
-           0 rw uint16_t wFormatTag = 0x0011;
-           2  r uint16_t nChannels;
-           4    uint32_t nSamplesPerSec;
-           8    uint32_t nAvgBytesPerSec = (rounded up)
-                                  = nBlockAlign*nSamplesPerSec/wSamplesPerBlock;
-                  nBlockAlign -- bytes per block
-           12 r uint16_t nBlockAlign [usually] = (N+1)*4*nChannels, N=0,1,2...;
-           14 r uint16_t wBitsPerSample [usually] = 4;
-           16   uint16_t cbSize = 2;
-           18 w uint16_t wSamplesPerBlock =
-           = (nBlockAlign-4*nChannels)*8/(wBitsPerSample*nChannels)+1 =
-           = [usually] N*8+1 */
+         * fmtLength = 20;
+         * 0 rw uint16_t wFormatTag = 0x0011;
+         * 2  r uint16_t nChannels;
+         * 4    uint32_t nSamplesPerSec;
+         * 8    uint32_t nAvgBytesPerSec = (rounded up)
+         *                        = nBlockAlign*nSamplesPerSec/wSamplesPerBlock;
+         *        nBlockAlign -- bytes per block
+         * 12 r uint16_t nBlockAlign [usually] = (N+1)*4*nChannels, N=0,1,2...;
+         * 14 r uint16_t wBitsPerSample [usually] = 4;
+         * 16   uint16_t cbSize = 2;
+         * 18 w uint16_t wSamplesPerBlock =
+         * = (nBlockAlign-4*nChannels)*8/(wBitsPerSample*nChannels)+1 =
+         * = [usually] N*8+1 */
         /* if(wBitsPerSample==3) nBlockAlign = ((N*3)+1)*4*nChannels;
-           uint16_t wSamplesPerBlock = N*4*8+1 = N*32+1 */
+         * uint16_t wSamplesPerBlock = N*4*8+1 = N*32+1 */
 
         /* Wwise IMA ADPCM fmt chunk as it appears in the wild
-           fmtLength = 0x18 = 24;
-           0  uint16_t wFormatTag = 0x0002;
-           2  uint16_t nChannels;
-           4  uint32_t nSamplesPerSec;
-           8  uint32_t nAvgBytesPerSec;
-           12 uint16_t nBlockAlign = (0x0024 = 36)*nChannels =
-                                   = (N+1)*4*nChannels, N = 8;
-           14 uint16_t wBitsPerSample = 4;
-           16 uint16_t cbSize = 6;
-           18 uint16_t unknown;
-           20 uint32_t dwChannelMask */
+         * fmtLength = 0x18 = 24;
+         * 0  uint16_t wFormatTag = 0x0002;
+         * 2  uint16_t nChannels;
+         * 4  uint32_t nSamplesPerSec;
+         * 8  uint32_t nAvgBytesPerSec;
+         * 12 uint16_t nBlockAlign = (0x0024 = 36)*nChannels =
+         *                         = (N+1)*4*nChannels, N = 8;
+         * 14 uint16_t wBitsPerSample = 4;
+         * 16 uint16_t cbSize = 6;
+         * 18 uint16_t unknown;
+         * 20 uint32_t dwChannelMask */
 
         /* IMA ADPCM fmt chunk adapted to multichannel wave specification
-           TODO: add short description */
+         * TODO: add short description */
 
         long fmtOffset = ftell(file);
         if(fmtOffset < 0)
@@ -265,88 +265,88 @@ int main(int argc, char **argv)
 
         if(channels > 1)
         { /* shuffle data to make it interleaved */
-                if(fseek(file, 4*3, SEEK_SET))
+            if(fseek(file, 4*3, SEEK_SET))
+            {
+                printf("%s: Error using file?!\n", argv[i]);
+                fclose(file); continue;
+            }
+            /* find "data" chunk */
+            size_t dataLength = findChunk(dataMark, file, argv[i]);
+            if(dataLength == 0)
+            {
+                printf("%s: File has no usable data...\n", argv[i]);
+                fclose(file); continue;
+            }
+            static uint8_t transformInData[BUFFER_SIZE], transformOutData[BUFFER_SIZE];
+            uint8_t *transformIn = transformInData,
+                    *transformOut = transformOutData;
+            /* how much blocks of data can be placed in buffers (integer divide) */
+            size_t transformCount = BUFFER_SIZE / align;
+            if(align > BUFFER_SIZE) /* just in case */
+            {
+                transformIn = malloc(2*align);
+                transformOut = transformIn + align;
+                transformCount = 1;
+            }
+            for(size_t blockCount = 0;
+                    blockCount*align < dataLength; )
+            {
+                /* remember the place for the later write */
+                long dataPoint = ftell(file);
+                if(dataPoint < 0)
                 {
                     printf("%s: Error using file?!\n", argv[i]);
-                    fclose(file); continue;
+                    break;
                 }
-                /* find "data" chunk */
-                size_t dataLength = findChunk(dataMark, file, argv[i]);
-                if(dataLength == 0)
-                {
-                    printf("%s: File has no usable data...\n", argv[i]);
-                    fclose(file); continue;
-                }
-                static uint8_t transformInData[BUFFER_SIZE], transformOutData[BUFFER_SIZE];
-                uint8_t *transformIn = transformInData,
-                        *transformOut = transformOutData;
-                /* how much blocks of data can be placed in buffers (integer divide) */
-                size_t transformCount = BUFFER_SIZE / align;
-                if(align > BUFFER_SIZE) /* just in case */
-                {
-                    transformIn = malloc(2*align);
-                    transformOut = transformIn + align;
-                    transformCount = 1;
-                }
-                    for(size_t blockCount = 0;
-                            blockCount*align < dataLength; )
-                    {
-                        /* remember the place for the later write */
-                        long dataPoint = ftell(file);
-                        if(dataPoint < 0)
-                        {
-                            printf("%s: Error using file?!\n", argv[i]);
-                            break;
-                        }
-                        /* NOTE: Example of C runtime library weirdness
-                         * (probably a bug, Linux x86-64, glibc 2.23): */
-                        ioStatus = fread(transformIn, align, transformCount, file);
-                        /* if align*transformCount is more then 4096 (8192)
-                         * with buffering set to default
-                         * ioStatus is always assigned transformCount and
-                         * ftell(file) is only increased by 4096. */
+                /* NOTE: Example of C runtime library weirdness
+                 * (probably a bug, Linux x86-64, glibc 2.23): */
+                ioStatus = fread(transformIn, align, transformCount, file);
+                /* if align*transformCount is more then 4096 (8192)
+                 * with buffering set to default
+                 * ioStatus is always assigned transformCount and
+                 * ftell(file) is only increased by 4096. */
 #if 0
-                        printf("read: %zu\n", ftell(file) - dataPoint);
+                printf("read: %zu\n", ftell(file) - dataPoint);
 #endif
-                        if(ioStatus == 0)
-                        {
-                            printf("%s: Unexpected end of file.\n", argv[i]);
-                            break;
-                        }
-                        /* should tell you how much blocks of data
-                         * the program have read */
-                        size_t blockAmount = ioStatus;
-                        /* NOTE: THIS IS WHERE WE INCREMENT THE LOOP INDEX */
-                        blockCount += blockAmount;
-                        /* NOTE: assumes nBlockAlign is multiple of nChannels
-                         * as required by the spec */
-                        for(size_t block = 0; block < blockAmount; ++block)
-                            for(size_t n = 0;
-                                    /* NOTE: there is 4 in here because
-                                     * data is copied 4 bytes at a time */
-                                    n < align/(channels*4);
-                                    ++n)
-                                for(size_t s = 0; s < channels; ++s)
-                                {
-                                    ((uint32_t *)(transformOut+block*align))[n*channels+s] =
-                                        ((uint32_t *)(transformIn+block*align))[s*align/(channels*4)+n];
-                                }
-                        if(fseek(file, dataPoint, SEEK_SET))
-                        {
-                            printf("%s: Error using file?!\n", argv[i]);
-                            break;
-                        }
-                        ioStatus = fwrite(transformOut, (blockAmount*align), 1, file);
-                        if(ioStatus == 0)
-                        {
-                            printf("%s: Error writing file.\nAborting.\n", argv[i]);
-                            fclose(file); return 1;
-                        }
-                    }
-                if(align > BUFFER_SIZE) /* just in case */
+                if(ioStatus == 0)
                 {
-                    free(transformIn);
+                    printf("%s: Unexpected end of file.\n", argv[i]);
+                    break;
                 }
+                /* should tell you how much blocks of data
+                 * the program have read */
+                size_t blockAmount = ioStatus;
+                /* NOTE: THIS IS WHERE WE INCREMENT THE LOOP INDEX */
+                blockCount += blockAmount;
+                /* NOTE: assumes nBlockAlign is multiple of nChannels
+                 * as required by the spec */
+                for(size_t block = 0; block < blockAmount; ++block)
+                    for(size_t n = 0;
+                            /* NOTE: there is 4 in here because
+                             * data is copied 4 bytes at a time */
+                            n < align/(channels*4);
+                            ++n)
+                        for(size_t s = 0; s < channels; ++s)
+                        {
+                            ((uint32_t *)(transformOut+block*align))[n*channels+s] =
+                                ((uint32_t *)(transformIn+block*align))[s*align/(channels*4)+n];
+                        }
+                if(fseek(file, dataPoint, SEEK_SET))
+                {
+                    printf("%s: Error using file?!\n", argv[i]);
+                    break;
+                }
+                ioStatus = fwrite(transformOut, (blockAmount*align), 1, file);
+                if(ioStatus == 0)
+                {
+                    printf("%s: Error writing file.\nAborting.\n", argv[i]);
+                    fclose(file); return 1;
+                }
+            }
+            if(align > BUFFER_SIZE) /* just in case */
+            {
+                free(transformIn);
+            }
         }
         fclose(file);
         printf("Finished processing %s\n", argv[i]);
